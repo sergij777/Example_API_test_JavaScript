@@ -1,0 +1,77 @@
+GET:
+{{BASE_URL}}/api/reports/hourly?from={{to}}&to={{to}}&limit={{limit}}&offset=0&from-hour={{fromHour}}&to-hour={{toHour}}
+
+----------------------------------------------
+Tests:
+
+pm.test("Status code is 200", function () {
+    pm.response.to.have.status(200);
+});
+
+var jsonData = pm.response.json();
+
+var time = +pm.collectionVariables.get("time");
+pm.test("Response time is less than "+time+" ms", function () {
+    pm.expect(pm.response.responseTime).to.be.below(time);
+});
+
+var total = +pm.collectionVariables.get("limit"); // the number of elements on the page
+var countContentElements = +jsonData.totalElements;
+if(total > countContentElements) {
+    total = countContentElements;
+}
+
+var str2 = pm.collectionVariables.get("to"); // the end date of the period of format 20230625
+var str2_1 = str2.slice(0,4)+"-"+str2.slice(4);
+var dateCheck = str2_1.slice(0,7)+"-"+str2_1.slice(7); // date conversion into format 2023-06-25
+
+
+var sign1 = true;  // SN in group
+var sign2 = true;  // hour in group from "fromHour" to "toHour"
+var sign3 = true;  // date
+var serialNumberLocal = "";
+var fromHourLocal = +pm.collectionVariables.get("fromHour");
+var toHourLocal = +pm.collectionVariables.get("toHour");
+var period = toHourLocal - fromHourLocal + 1; 
+var firstElement = true;  // sign that element in group from "fromHour" to "toHour" is FIRST
+var currentHour = fromHourLocal;
+var count = 1;
+
+/**
+ * The cycle runs through the entire data array. At the same time, 
+ * it finds the beginning of the range of hours between "fromHour" and "toHour"
+ * and sets variables in the first value of the range, 
+ * and checks variables in other values.
+ */
+for(var i = 0; i<total; i++){    
+    if(firstElement) {
+        serialNumberLocal = jsonData.content[i].serialNumber;
+        if(jsonData.content[i].hour != currentHour) sign2 = false;
+        if(jsonData.content[i].date != dateCheck) sign3 = false;
+    }
+    else {
+        if(jsonData.content[i].serialNumber != serialNumberLocal) sign1 = false;
+        if(jsonData.content[i].hour != currentHour) sign2 = false;
+        if(jsonData.content[i].date != dateCheck) sign3 = false;
+    }    
+    
+    if (((count - period) % period) != 0 ) {
+        firstElement = false;
+        currentHour++;
+    }
+    else {
+        firstElement = true;
+        currentHour = fromHourLocal;
+    }
+    count++;    
+}
+pm.test("Checking that each SN in list is correct", function () {    
+    pm.expect(sign1).to.eql(true);
+});
+pm.test("Checking that each hour in list is correct", function () {    
+    pm.expect(sign2).to.eql(true);
+});
+pm.test("Checking that each date in list is "+dateCheck, function () {    
+    pm.expect(sign3).to.eql(true);
+});
+

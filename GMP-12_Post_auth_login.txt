@@ -1,0 +1,33 @@
+POST:
+{{BASE_URL}}/api/auth/login
+
+------------------------------------------
+Body:
+{ 
+	"username": "{{USER_LOGIN}}", 
+	"password": "{{USER_PASSWORD}}" 
+}
+
+-------------------------------------------
+Tests:
+pm.test("Status code is 200", function () {
+    pm.response.to.have.status(200);    
+});
+
+var time = +pm.collectionVariables.get("time");
+pm.test("Response time is less than "+time+" ms", function () {
+    pm.expect(pm.response.responseTime).to.be.below(time);
+});
+
+var resp = pm.response.text();
+pm.collectionVariables.set("bearerToken", resp);
+
+pm.test("Token size is correct", function () {    
+    pm.expect(resp.length).to.be.above(220);
+});
+
+if(pm.response.status != "OK") {
+    console.info("STATUS is "+pm.response.status);
+    postman.setNextRequest('Last');
+}
+
